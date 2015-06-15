@@ -39,6 +39,12 @@
 
 #define GRAVITY 9.80665
 
+#if FREENECT_V_INVERTED
+	#define INVERT_MULT -1
+#else
+	#define INVERT_MULT 1
+#endif
+
 // Structs for 1473 and K4W communication
 typedef struct {
 	uint32_t magic;
@@ -138,11 +144,11 @@ int update_tilt_state_alt(freenect_device *dev){
 		//printf("\tX: %d  Y: %d  Z:%d - tilt is %d\n", accel_and_tilt.x, accel_and_tilt.y, accel_and_tilt.z, accel_and_tilt.tilt);
         
     	dev->raw_state.accelerometer_x  = (int16_t)accel_and_tilt.x;
-        dev->raw_state.accelerometer_y  = (int16_t)accel_and_tilt.y;
+        dev->raw_state.accelerometer_y  = (int16_t)accel_and_tilt.y*INVERT_MULT;
         dev->raw_state.accelerometer_z  = (int16_t)accel_and_tilt.z;
         
         //this is multiplied by 2 as the older 1414 device reports angles doubled and freenect takes this into account
-        dev->raw_state.tilt_angle       = (int8_t)accel_and_tilt.tilt * 2;
+        dev->raw_state.tilt_angle       = (int8_t)accel_and_tilt.tilt * 2 * INVERT_MULT;
 
 	}
 	// Reply: skip four uint32_t, then you have three int32_t that give you acceleration in that direction, it seems.
@@ -176,9 +182,9 @@ int freenect_update_tilt_state(freenect_device *dev)
 	uz = ((uint16_t)buf[6] << 8) | buf[7];
 
 	dev->raw_state.accelerometer_x = (int16_t)ux;
-	dev->raw_state.accelerometer_y = (int16_t)uy;
+	dev->raw_state.accelerometer_y = (int16_t)uy*INVERT_MULT;
 	dev->raw_state.accelerometer_z = (int16_t)uz;
-	dev->raw_state.tilt_angle = (int8_t)buf[8];
+	dev->raw_state.tilt_angle = (int8_t)buf[8]*INVERT_MULT;
 	dev->raw_state.tilt_status = (freenect_tilt_status_code)buf[9];
 
 	return ret;
@@ -215,6 +221,7 @@ int freenect_set_tilt_degs_alt(freenect_device *dev, int tilt_degrees)
 
 int freenect_set_tilt_degs(freenect_device *dev, double angle)
 {
+	angle = INVERT_MULT * angle;
 	freenect_context *ctx = dev->parent;
     
     //if we have motor control via audio and fw is uploaded - call the alt function

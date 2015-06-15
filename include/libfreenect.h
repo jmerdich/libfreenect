@@ -50,6 +50,9 @@ extern "C" {
 /// Value indicating that this pixel has no data, when using FREENECT_DEPTH_11BIT, FREENECT_DEPTH_10BIT, FREENECT_DEPTH_11BIT_PACKED, or FREENECT_DEPTH_10BIT_PACKED
 #define FREENECT_DEPTH_RAW_NO_VALUE 2047
 
+/// Value indicating the Kinect is upside down. Maybe change this to a flag later.
+#define FREENECT_V_INVERTED 1
+
 /// Flags representing devices to open when freenect_open_device() is called.
 /// In particular, this allows libfreenect to grab only a subset of the devices
 /// in the Kinect, so you could (for instance) use libfreenect to handle audio

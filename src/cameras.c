@@ -84,6 +84,28 @@ struct pkt_hdr {
 	uint32_t timestamp;
 };
 
+// does an in-place bidirectional flip of a given frame.
+static int invert_frame(uint8_t* buffer, freenect_frame_mode frame_mode){
+	if (!frame_mode.is_valid || (frame_mode.bytes % frame_mode.height != 0))
+		return -1; //invalid frame
+
+	// size_t stride =  (size_t) frame_mode.bytes/frame_mode.height;
+	size_t bytes = (size_t) (frame_mode.data_bits_per_pixel + frame_mode.padding_bits_per_pixel) / 8;
+
+	uint8_t tmp, i;
+	uint8_t* buffer_target = buffer + frame_mode.bytes - bytes; // last pixel
+	while (buffer < buffer_target) {
+		for (i=0; i < bytes; i++) {
+			tmp = *buffer;
+			*buffer++ = *buffer_target;
+			*buffer_target++ = tmp;
+		}
+
+		buffer_target -= bytes * 2;
+	}
+
+}
+
 static int stream_process(freenect_context *ctx, packet_stream *strm, uint8_t *pkt, int len, freenect_chunk_cb cb, void *user_data)
 {
 	if (len < 12)
@@ -412,6 +434,10 @@ static void depth_process(freenect_device *dev, uint8_t *pkt, int len)
 			FN_ERROR("depth_process() was called, but an invalid depth_format is set\n");
 			break;
 	}
+#if FREENECT_V_INVERTED
+	freenect_frame_mode frame_mode = freenect_get_current_depth_mode(dev);
+	invert_frame(dev->depth.proc_buf, frame_mode);
+#endif
 	if (dev->depth_cb)
 		dev->depth_cb(dev, dev->depth.proc_buf, dev->depth.timestamp);
 }
@@ -656,6 +682,9 @@ static void video_process(freenect_device *dev, uint8_t *pkt, int len)
 			FN_ERROR("video_process() was called, but an invalid video_format is set\n");
 			break;
 	}
+	#if FREENECT_V_INVERTED
+		invert_frame(dev->video.proc_buf, frame_mode);
+	#endif
 
 	if (dev->video_cb)
 		dev->video_cb(dev, dev->video.proc_buf, dev->video.timestamp);
