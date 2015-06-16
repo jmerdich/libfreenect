@@ -104,6 +104,7 @@ static int invert_frame(uint8_t* buffer, freenect_frame_mode frame_mode){
 		buffer_target -= bytes * 2;
 	}
 
+	return 0;
 }
 
 static int stream_process(freenect_context *ctx, packet_stream *strm, uint8_t *pkt, int len, freenect_chunk_cb cb, void *user_data)
