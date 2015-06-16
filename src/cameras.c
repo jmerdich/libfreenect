@@ -84,10 +84,63 @@ struct pkt_hdr {
 	uint32_t timestamp;
 };
 
+static int invert_bayer_frame(uint8_t* buffer, freenect_frame_mode frame_mode) {
+	if (!frame_mode.is_valid) {
+		return -1;
+	}
+
+	/*
+	 * Bayer frames rely on pixel location for color info, so we need to move the pixels around while flipping.
+	 * This leads to fuzziness (since all values are off by a fraction of a pixel),
+	 *   but is the only way to handle it without resampling.
+	 *
+	 * G1 R1 G2 R2        G8 R4 G7 R3
+	 * B1 G3 B2 G4    >   B4 G6 B3 G5
+	 * G5 R3 G6 R4    >   G4 R2 G3 R1
+	 * B3 G7 B4 G8        B2 G2 B1 G1
+	 *
+	 */
+
+	uint8_t tmp;
+	int y;
+	int x;
+	uint8_t *buffer_target = buffer + frame_mode.width * frame_mode.height - 1;
+	uint8_t *buffer_alt = buffer + frame_mode.width;
+	uint8_t *buffer_target_alt = buffer_target - frame_mode.width;
+	for (y = 0; y < frame_mode.height / 4; y++) {
+		for (x = 0; x < frame_mode.width / 2; x++) {
+			// only handles even numbered arrays for now
+			tmp = *buffer;
+			*buffer++ = *buffer_target;
+			*buffer_target-- = tmp;
+
+			tmp = *buffer;
+			*buffer++ = *buffer_target_alt;
+			*buffer_target_alt-- = tmp;
+
+			tmp = *buffer_alt;
+			*buffer_alt++ = *buffer_target;
+			*buffer_target-- = tmp;
+
+			tmp = *buffer_alt;
+			*buffer_alt++ = *buffer_target_alt;
+			*buffer_target_alt-- = tmp;
+		}
+		buffer += frame_mode.width;
+		buffer_alt += frame_mode.width;
+		buffer_target -= frame_mode.width;
+		buffer_target_alt -= frame_mode.width;
+	}
+	return 0;
+}
+
 // does an in-place bidirectional flip of a given frame.
 static int invert_frame(uint8_t* buffer, freenect_frame_mode frame_mode){
 	if (!frame_mode.is_valid || (frame_mode.bytes % frame_mode.height != 0))
 		return -1; //invalid frame
+
+	if (frame_mode.video_format == FREENECT_VIDEO_BAYER)
+		return invert_bayer_frame(buffer, frame_mode);
 
 	// size_t stride =  (size_t) frame_mode.bytes/frame_mode.height;
 	size_t bytes = (size_t) (frame_mode.data_bits_per_pixel + frame_mode.padding_bits_per_pixel) / 8;
